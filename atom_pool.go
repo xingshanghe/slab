@@ -24,13 +24,11 @@ import (
 // @param pageSize 	页数
 // @return *AtomPool
 //
-func NewAtomPool(minSize, maxSize, factor, pageSize int) *AtomPool {
-	ap := &AtomPool{
-		pool{
-			classes: make([]Class, 0, 10),
-			minSize: minSize,
-			maxSize: maxSize,
-		},
+func NewAtomPool(minSize, maxSize, factor, pageSize int) Pool {
+	ap := &pool{
+		classes: make([]Class, 0, 10),
+		minSize: minSize,
+		maxSize: maxSize,
 	}
 
 	for chunkSize := minSize; chunkSize <= maxSize && chunkSize <= pageSize; chunkSize *= factor {
@@ -58,35 +56,6 @@ func NewAtomPool(minSize, maxSize, factor, pageSize int) *AtomPool {
 	}
 
 	return ap
-}
-
-type AtomPool struct {
-	pool
-}
-
-func (p *AtomPool) Alloc(size int) []byte {
-	if size <= p.maxSize {
-		for i := 0; i < len(p.classes); i++ {
-			if p.classes[i].Size() >= size {
-				mem := p.classes[i].Pop()
-				if mem != nil {
-					return mem[:size]
-				}
-				break
-			}
-		}
-	}
-	return make([]byte, size)
-}
-
-func (p *AtomPool) Free(mem []byte) {
-	size := cap(mem)
-	for i := 0; i < len(p.classes); i++ {
-		if p.classes[i].Size() == size {
-			p.classes[i].Push(mem)
-			break
-		}
-	}
 }
 
 var _ Class = (*atomClass)(nil)

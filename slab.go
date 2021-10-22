@@ -19,9 +19,34 @@ type pool struct {
 	maxSize int
 }
 
+func (p *pool) Alloc(size int) []byte {
+	if size <= p.maxSize {
+		for i := 0; i < len(p.classes); i++ {
+			if p.classes[i].Size() >= size {
+				mem := p.classes[i].Pop()
+				if mem != nil {
+					return mem[:size]
+				}
+				break
+			}
+		}
+	}
+	return make([]byte, size)
+}
+
+func (p *pool) Free(mem []byte) {
+	size := cap(mem)
+	for i := 0; i < len(p.classes); i++ {
+		if p.classes[i].Size() == size {
+			p.classes[i].Push(mem)
+			break
+		}
+	}
+}
+
 type Class interface {
-	Push(mem []byte)
-	Pop() []byte
+	Push(mem []byte) // 入栈
+	Pop() []byte     // 出栈
 
 	Size() int
 }
@@ -35,4 +60,4 @@ func (*NoPool) Alloc(size int) []byte {
 func (*NoPool) Free([]byte) {}
 
 var _ Pool = (*NoPool)(nil)
-var _ Pool = (*AtomPool)(nil)
+var _ Pool = (*pool)(nil)

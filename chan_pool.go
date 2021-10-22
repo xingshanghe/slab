@@ -8,6 +8,8 @@
  */
 package slab
 
+import "unsafe"
+
 // NewChanPool reate a chan based slab allocation memory pool.
 // @Description: 创建chan内存池
 // @Date: 2021-10-19 16:29:47
@@ -17,20 +19,30 @@ package slab
 // @param pageSize 	页数
 // @return *ChanPool
 //
-func NewChanPool(minSize, maxSize, factor, pageSize int) *ChanPool {
-	return nil
-}
-
-type ChanPool struct {
-	pool
-}
-
-func (p *ChanPool) Alloc(size int) []byte {
-	panic("implement me")
-}
-
-func (p *ChanPool) Free(bytes []byte) {
-	panic("implement me")
+func NewChanPool(minSize, maxSize, factor, pageSize int) Pool {
+	cp := &pool{
+		classes: make([]Class, 0, 10),
+		minSize: minSize,
+		maxSize: maxSize,
+	}
+	for chunkSize := minSize; chunkSize <= maxSize && chunkSize <= pageSize; chunkSize *= factor {
+		cc := chanClass{
+			size:   chunkSize,
+			page:   make([]byte, pageSize),
+			chunks: make(chan []byte, pageSize/chunkSize),
+		}
+		cc.pageBegin = uintptr(unsafe.Pointer(&cc.page[0]))
+		for i := 0; i < pageSize/chunkSize; i++ {
+			// lock down the capacity to protect append operation
+			mem := cc.page[i*chunkSize : (i+1)*chunkSize : (i+1)*chunkSize]
+			cc.chunks <- mem
+			if i == len(cc.chunks)-1 {
+				cc.pageEnd = uintptr(unsafe.Pointer(&mem[0]))
+			}
+		}
+		cp.classes = append(cp.classes, cc)
+	}
+	return cp
 }
 
 var _ Class = (*chanClass)(nil)
@@ -43,14 +55,23 @@ type chanClass struct {
 	chunks    chan []byte
 }
 
-func (chanClass) Push(mem []byte) {
-	panic("implement me")
+func (c chanClass) Push(mem []byte) {
+	select {
+	case c.chunks <- mem:
+	default:
+		mem = nil
+	}
 }
 
-func (chanClass) Pop() []byte {
-	panic("implement me")
+func (c chanClass) Pop() []byte {
+	select {
+	case mem := <-c.chunks:
+		return mem
+	default:
+		return nil
+	}
 }
 
-func (chanClass) Size() int {
-	panic("implement me")
+func (c chanClass) Size() int {
+	return c.size
 }
