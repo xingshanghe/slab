@@ -33,12 +33,10 @@ func NewAtomPool(minSize, maxSize, factor, pageSize int) Pool {
 
 	for chunkSize := minSize; chunkSize <= maxSize && chunkSize <= pageSize; chunkSize *= factor {
 		ac := atomClass{
-			size:      chunkSize,
-			page:      make([]byte, pageSize),
-			pageBegin: 0,
-			pageEnd:   0,
-			chunks:    make([]chunk, pageSize/chunkSize),
-			head:      (1 << 32),
+			size:   chunkSize,
+			page:   make([]byte, pageSize),
+			chunks: make([]chunk, pageSize/chunkSize),
+			head:   (1 << 32),
 		}
 
 		for i := 0; i < len(ac.chunks); i++ {

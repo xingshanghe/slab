@@ -33,7 +33,6 @@ func NewChanPool(minSize, maxSize, factor, pageSize int) Pool {
 		}
 		cc.pageBegin = uintptr(unsafe.Pointer(&cc.page[0]))
 		for i := 0; i < pageSize/chunkSize; i++ {
-			// lock down the capacity to protect append operation
 			mem := cc.page[i*chunkSize : (i+1)*chunkSize : (i+1)*chunkSize]
 			cc.chunks <- mem
 			if i == len(cc.chunks)-1 {
