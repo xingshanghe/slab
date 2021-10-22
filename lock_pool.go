@@ -38,10 +38,14 @@ var _ Class = (*lockClass)(nil)
 type lockClass struct {
 }
 
-func (*lockClass) Push(mem []byte) {
+func (lockClass) Push(mem []byte) {
 	panic("implement me")
 }
 
-func (*lockClass) Pop() []byte {
+func (lockClass) Pop() []byte {
+	panic("implement me")
+}
+
+func (lockClass) Size() int {
 	panic("implement me")
 }

@@ -43,10 +43,14 @@ type chanClass struct {
 	chunks    chan []byte
 }
 
-func (*chanClass) Push(mem []byte) {
+func (chanClass) Push(mem []byte) {
 	panic("implement me")
 }
 
-func (*chanClass) Pop() []byte {
+func (chanClass) Pop() []byte {
+	panic("implement me")
+}
+
+func (chanClass) Size() int {
 	panic("implement me")
 }

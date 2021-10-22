@@ -25,7 +25,39 @@ import (
 // @return *AtomPool
 //
 func NewAtomPool(minSize, maxSize, factor, pageSize int) *AtomPool {
-	return nil
+	ap := &AtomPool{
+		pool{
+			classes: make([]Class, 0, 10),
+			minSize: minSize,
+			maxSize: maxSize,
+		},
+	}
+
+	for chunkSize := minSize; chunkSize <= maxSize && chunkSize <= pageSize; chunkSize *= factor {
+		ac := atomClass{
+			size:      chunkSize,
+			page:      make([]byte, pageSize),
+			pageBegin: 0,
+			pageEnd:   0,
+			chunks:    make([]chunk, pageSize/chunkSize),
+			head:      (1 << 32),
+		}
+
+		for i := 0; i < len(ac.chunks); i++ {
+			chk := &ac.chunks[i]
+			// lock down the capacity to protect append operation
+			chk.mem = ac.page[i*chunkSize : (i+1)*chunkSize : (i+1)*chunkSize]
+			if i < len(ac.chunks)-1 {
+				chk.next = uint64(i+1+1 /* index start from 1 */) << 32
+			} else {
+				ac.pageBegin = uintptr(unsafe.Pointer(&ac.page[0]))
+				ac.pageEnd = uintptr(unsafe.Pointer(&chk.mem[0]))
+			}
+		}
+		ap.classes = append(ap.classes, ac)
+	}
+
+	return ap
 }
 
 type AtomPool struct {
@@ -33,11 +65,28 @@ type AtomPool struct {
 }
 
 func (p *AtomPool) Alloc(size int) []byte {
-	panic("implement me")
+	if size <= p.maxSize {
+		for i := 0; i < len(p.classes); i++ {
+			if p.classes[i].Size() >= size {
+				mem := p.classes[i].Pop()
+				if mem != nil {
+					return mem[:size]
+				}
+				break
+			}
+		}
+	}
+	return make([]byte, size)
 }
 
-func (p *AtomPool) Free(bytes []byte) {
-	panic("implement me")
+func (p *AtomPool) Free(mem []byte) {
+	size := cap(mem)
+	for i := 0; i < len(p.classes); i++ {
+		if p.classes[i].Size() == size {
+			p.classes[i].Push(mem)
+			break
+		}
+	}
 }
 
 var _ Class = (*atomClass)(nil)
@@ -57,7 +106,7 @@ type chunk struct {
 	next uint64
 }
 
-func (c *atomClass) Push(mem []byte) {
+func (c atomClass) Push(mem []byte) {
 	ptr := (*reflect.SliceHeader)(unsafe.Pointer(&mem)).Data
 	if c.pageBegin <= ptr && ptr <= c.pageEnd {
 		i := (ptr - c.pageBegin) / uintptr(c.size)
@@ -78,7 +127,7 @@ func (c *atomClass) Push(mem []byte) {
 	}
 }
 
-func (c *atomClass) Pop() []byte {
+func (c atomClass) Pop() []byte {
 	for {
 		old := atomic.LoadUint64(&c.head)
 		if old == 0 {
@@ -92,4 +141,8 @@ func (c *atomClass) Pop() []byte {
 		}
 		runtime.Gosched()
 	}
+}
+
+func (c atomClass) Size() int {
+	return c.size
 }

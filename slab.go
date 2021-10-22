@@ -22,9 +22,9 @@ type pool struct {
 type Class interface {
 	Push(mem []byte)
 	Pop() []byte
-}
 
-var _ Class = (*atomClass)(nil)
+	Size() int
+}
 
 type NoPool struct{}
 

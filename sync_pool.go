@@ -32,10 +32,14 @@ type syncClass struct {
 	sync.Pool
 }
 
-func (*syncClass) Push(mem []byte) {
+func (syncClass) Push(mem []byte) {
 	panic("implement me")
 }
 
-func (*syncClass) Pop() []byte {
+func (syncClass) Pop() []byte {
+	panic("implement me")
+}
+
+func (syncClass) Size() int {
 	panic("implement me")
 }
